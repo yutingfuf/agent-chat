@@ -2,6 +2,8 @@ import mongoose from 'mongoose';
 import Conversation from '../../../src/lib/conversation';
 import connectToDatabase from '../../../src/lib/dbService';
 
+// API 路由处理器 - 导出命名函数以符合BFF架构标准
+
 // 豆包 API 配置
 const DOUBAO_API_URL =
   'https://ark.cn-beijing.volces.com/api/v3/chat/completions';
@@ -11,47 +13,50 @@ const DOUBAO_API_KEY = '02e001ce-37e4-4a35-90a5-38407e14524f';
 const TAVILY_API_URL = 'https://api.tavily.com/search';
 const TAVILY_API_KEY = '17bdbd2e-bb81-4969-9d53-bfcd1e85abea';
 
-const SYSTEM_PROMPT = `# 角色:
-你是一名专业的教练，擅长根据用户的兴趣设定目标并提供指导。
+const SYSTEM_PROMPT = `你是一名专业的教练，擅长根据用户的兴趣设定目标并提供指导。请以自然、友好的人类口吻与用户交流，避免使用格式化的标题或生硬的结构。
 
-## 目标:
-- 根据用户输入的兴趣，帮助用户设定清晰且可行的方案目标。
-- 在用户日常对话或提问时，提供简单且切实可行的回答。
-- 如果提供了联网搜索结果，请优先参考搜索结果中的信息来回答，确保时效性和准确性。
+当用户分享兴趣时，帮助他们设定清晰可行的目标，包含明确的时间框架和可衡量的标准。在用户提问或日常对话时，提供简单实用的回答，确保内容易于理解和执行。
 
-## 技能:
-- 分析用户兴趣并提取关键点。
-- 制定适合用户需求的方案目标。
-- 提供清晰、简洁且实用的建议。
-- 可以使用联网搜索工具，获取更多的信息。
+如果有联网搜索结果，请优先参考这些信息来回答，确保内容的时效性和准确性。始终保持友好、鼓励的语气，根据用户的反馈灵活调整你的建议，帮助用户保持动力并实现他们的目标。
 
-## 工作流程:
-1. **理解用户兴趣**：
-    - 分析用户输入的兴趣点，识别主要需求和目标。
-    - 根据用户兴趣的范围和深度，确定适合的目标类型。
-2. **设定方案目标**：
-    - 根据用户兴趣，提供可操作性强、具体且符合用户背景的目标设定。
-    - 确保目标具有明确的时间框架和可衡量的标准。
-3. **回答用户问题**：
-    - 在日常对话或用户提问时，提供针对性强的回答。
-    - 回答需简单明了，并且能切实帮助用户实现目标。
-4. **持续调整与优化**：
-    - 根据用户的反馈，调整目标和建议以更好地满足用户需求。
-    - 提供鼓励和指导，帮助用户保持动力。
+请直接以连贯的自然语言回答，不要使用任何如"目标设定："、"回答："等格式化的标签，就像与人面对面交流一样。`;
 
-## 约束:
-- 必须根据用户输入的兴趣设定目标，不能随意设定与用户兴趣无关的目标。
-- 回答必须简单且可行，不能提供复杂或难以执行的建议。
-- 目标设定需具体且具有可衡量性，避免模糊不清。
+// TypeScript类型定义
+interface Message {
+  role: string;
+  content: string;
+  timestamp: number;
+  _id?: string;
+  thinking?: boolean;
+}
 
-## 输出格式:
-- **目标设定**：以清晰的文字描述用户的方案目标，包含时间框架和衡量标准。
-- **回答**：针对用户的具体问题，提供简洁实用的建议。
-- **文字风格**：友好、鼓励、清晰。`;
+interface Conversation {
+  id: string;
+  userId: string;
+  title: string;
+  messages: Message[];
+  updatedAt: number;
+  createdAt?: number;
+  _id?: string;
+}
+
+interface ChatRequest {
+  message?: string;
+  useSearch?: boolean;
+  chatId?: string;
+  action?: string;
+  content?: string;
+  title?: string;
+}
+
+interface SearchResultItem {
+  title: string;
+  content: string;
+}
 
 // 内存存储（临时替代数据库）
 const memoryStorage = {
-  conversations: new Map(),
+  conversations: new Map<string, Conversation>(),
   currentId: 1,
 };
 
@@ -83,7 +88,7 @@ async function searchWeb(query: string) {
     console.log(`搜索成功，结果数量: ${data.results?.length || 0}`);
     return (data.results || [])
       .map(
-        (item: any, i: number) => `[${i + 1}] ${item.title}: ${item.content}`,
+        (item: SearchResultItem, i: number) => `[${i + 1}] ${item.title}: ${item.content}`,
       )
       .join('\n\n');
   } catch (error) {
@@ -142,7 +147,7 @@ async function checkDatabaseConnection() {
   }
 }
 
-export const post = async ({ data }: { data: any }) => {
+export const post = async ({ data }: { data: ChatRequest }) => {
   console.log('==========收到请求 ==========');
   console.log('请求参数:', JSON.stringify(data, null, 2));
 

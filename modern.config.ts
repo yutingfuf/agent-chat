@@ -15,6 +15,5 @@ export default defineConfig({
   bff: {
     // 启用BFF API路由
     proxy: {},
- 
   },
 });

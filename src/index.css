@@ -12,3 +12,69 @@
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
+
+/* Tooltip styles */
+.tooltip-container {
+  position: relative;
+  display: inline-block;
+}
+
+.chat-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+  transition: all 0.2s ease;
+}
+
+.tooltip-container:hover .chat-title {
+  border: 1px solid rgba(156, 163, 175, 0.3);
+  padding: 2px 4px;
+  border-radius: 4px;
+}
+
+.sidebar-dark .tooltip-container:hover .chat-title {
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.tooltip-content {
+  display: none;
+  position: absolute;
+  background-color: rgba(0, 0, 0, 0.8);
+  color: white;
+  padding: 8px 12px;
+  border-radius: 4px;
+  font-size: 12px;
+  z-index: 10;
+  left: 100%;
+  top: 50%;
+  transform: translateY(-50%);
+  margin-left: 8px;
+  white-space: nowrap;
+  max-width: 300px;
+  overflow-wrap: break-word;
+  white-space: normal;
+}
+
+.sidebar-dark .tooltip-content {
+  background-color: rgba(255, 255, 255, 0.9);
+  color: black;
+}
+
+.tooltip-arrow {
+  position: absolute;
+  right: 100%;
+  top: 50%;
+  transform: translateY(-50%);
+  border-width: 5px;
+  border-style: solid;
+  border-color: transparent rgba(0, 0, 0, 0.8) transparent transparent;
+}
+
+.sidebar-dark .tooltip-arrow {
+  border-color: transparent rgba(255, 255, 255, 0.9) transparent transparent;
+}
+
+.tooltip-container:hover .tooltip-content {
+    display: block;
+  }
