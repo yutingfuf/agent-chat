@@ -5,25 +5,11 @@
     "jsx": "preserve",
     "baseUrl": "./",
     "paths": {
-      "@/*": [
-        "./src/*"
-      ],
-      "@shared/*": [
-        "./shared/*"
-      ],
-      "@api/*": [
-        "./api/lambda/*"
-      ]
+      "@/*": ["./src/*"],
+      "@shared/*": ["./shared/*"],
+      "@api/*": ["./api/lambda/*"]
     }
   },
-  "include": [
-    "src",
-    "shared",
-    "config",
-    "modern.config.ts",
-    "api"
-  ],
-  "exclude": [
-    "**/node_modules"
-  ]
+  "include": ["src", "shared", "config", "modern.config.ts", "api"],
+  "exclude": ["**/node_modules"]
 }

@@ -1,7 +1,8 @@
 import mongoose, { type Document, type Model } from 'mongoose';
 
 // MongoDB连接配置
-const MONGODB_URI = 'mongodb+srv://2061997293_db_user:159357yyt@cluster0.mgbpuot.mongodb.net/?appName=Cluster0';
+const MONGODB_URI =
+  'mongodb+srv://2061997293_db_user:159357yyt@cluster0.mgbpuot.mongodb.net/?appName=Cluster0';
 
 // 消息接口定义
 export interface MessageDocument extends Document {
@@ -24,42 +25,43 @@ const MessageSchema: mongoose.Schema<MessageDocument> = new mongoose.Schema({
   role: {
     type: String,
     enum: ['user', 'assistant', 'system'],
-    required: true
+    required: true,
   },
   content: {
     type: String,
-    required: true
+    required: true,
   },
   timestamp: {
     type: Date,
-    default: Date.now
+    default: Date.now,
   },
   thinking: {
     type: Boolean,
-    default: false
-  }
+    default: false,
+  },
 });
 
 // 聊天历史模式定义
-const ChatHistorySchema: mongoose.Schema<ChatHistoryDocument> = new mongoose.Schema({
-  title: {
-    type: String,
-    required: true,
-    default: '新对话'
-  },
-  messages: [MessageSchema],
-  createdAt: {
-    type: Date,
-    default: Date.now
-  },
-  updatedAt: {
-    type: Date,
-    default: Date.now
-  }
-});
+const ChatHistorySchema: mongoose.Schema<ChatHistoryDocument> =
+  new mongoose.Schema({
+    title: {
+      type: String,
+      required: true,
+      default: '新对话',
+    },
+    messages: [MessageSchema],
+    createdAt: {
+      type: Date,
+      default: Date.now,
+    },
+    updatedAt: {
+      type: Date,
+      default: Date.now,
+    },
+  });
 
 // 更新时间戳中间件
-ChatHistorySchema.pre('save', function(next) {
+ChatHistorySchema.pre('save', function (next) {
   this.updatedAt = new Date();
   next();
 });
@@ -70,7 +72,10 @@ export class DatabaseService {
   private isConnected = false;
 
   constructor() {
-    this.ChatHistoryModel = mongoose.model<ChatHistoryDocument>('ChatHistory', ChatHistorySchema);
+    this.ChatHistoryModel = mongoose.model<ChatHistoryDocument>(
+      'ChatHistory',
+      ChatHistorySchema,
+    );
   }
 
   // 连接到MongoDB
@@ -93,7 +98,7 @@ export class DatabaseService {
   async createChatHistory(title?: string): Promise<ChatHistoryDocument> {
     await this.connect();
     const chatHistory = new this.ChatHistoryModel({
-      title: title || '新对话'
+      title: title || '新对话',
     });
     return chatHistory.save();
   }
@@ -113,7 +118,7 @@ export class DatabaseService {
   // 更新聊天历史
   async updateChatHistory(
     id: string,
-    data: Partial<ChatHistoryDocument>
+    data: Partial<ChatHistoryDocument>,
   ): Promise<ChatHistoryDocument | null> {
     await this.connect();
     return this.ChatHistoryModel.findByIdAndUpdate(id, data, { new: true });
@@ -122,16 +127,16 @@ export class DatabaseService {
   // 添加消息到聊天历史
   async addMessageToChatHistory(
     chatId: string,
-    message: Omit<MessageDocument, '_id'>
+    message: Omit<MessageDocument, '_id'>,
   ): Promise<ChatHistoryDocument | null> {
     await this.connect();
     return this.ChatHistoryModel.findByIdAndUpdate(
       chatId,
       {
         $push: { messages: message },
-        $set: { updatedAt: new Date() }
+        $set: { updatedAt: new Date() },
       },
-      { new: true }
+      { new: true },
     );
   }
 
@@ -147,10 +152,13 @@ if (!MONGODB_URI) {
 }
 
 declare const global: typeof globalThis & {
-  mongoose?: { conn: typeof mongoose | null; promise: Promise<typeof mongoose> | null };
+  mongoose?: {
+    conn: typeof mongoose | null;
+    promise: Promise<typeof mongoose> | null;
+  };
 };
 
-let cached = global.mongoose || { conn: null, promise: null };
+const cached = global.mongoose || { conn: null, promise: null };
 
 if (!global.mongoose) {
   global.mongoose = cached;
@@ -160,12 +168,14 @@ async function connectToDatabase() {
   if (cached.conn) return cached.conn;
 
   if (!cached.promise) {
-    cached.promise = mongoose.connect(MONGODB_URI, {
-      serverSelectionTimeoutMS: 5000, // 5秒超时
-      socketTimeoutMS: 45000, // 45秒socket超时
-    } as mongoose.ConnectOptions).then(mongoose => {
-      return mongoose;
-    });
+    cached.promise = mongoose
+      .connect(MONGODB_URI, {
+        serverSelectionTimeoutMS: 5000, // 5秒超时
+        socketTimeoutMS: 45000, // 45秒socket超时
+      } as mongoose.ConnectOptions)
+      .then(mongoose => {
+        return mongoose;
+      });
   }
   cached.conn = await cached.promise;
   return cached.conn;

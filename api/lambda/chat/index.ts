@@ -30,14 +30,14 @@ interface Message {
   thinking?: boolean;
 }
 
-interface Conversation {
+// 定义内存存储的会话类型
+interface MemoryConversation {
   id: string;
   userId: string;
   title: string;
   messages: Message[];
   updatedAt: number;
   createdAt?: number;
-  _id?: string;
 }
 
 interface ChatRequest {
@@ -88,7 +88,8 @@ async function searchWeb(query: string) {
     console.log(`搜索成功，结果数量: ${data.results?.length || 0}`);
     return (data.results || [])
       .map(
-        (item: SearchResultItem, i: number) => `[${i + 1}] ${item.title}: ${item.content}`,
+        (item: SearchResultItem, i: number) =>
+          `[${i + 1}] ${item.title}: ${item.content}`,
       )
       .join('\n\n');
   } catch (error) {
@@ -121,16 +122,21 @@ async function checkDatabaseConnection() {
   connectionPromise = (async () => {
     try {
       await connectToDatabase();
-      
+
       // 检查连接状态（1 = connected）
       if (mongoose.connection.readyState === 1) {
         dbConnected = true;
         console.log('✅ 数据库连接成功');
       } else {
-        throw new Error(`数据库连接状态异常: ${mongoose.connection.readyState}`);
+        throw new Error(
+          `数据库连接状态异常: ${mongoose.connection.readyState}`,
+        );
       }
     } catch (e) {
-      console.warn('⚠️ 数据库连接失败，使用内存存储:', e instanceof Error ? e.message : e);
+      console.warn(
+        '⚠️ 数据库连接失败，使用内存存储:',
+        e instanceof Error ? e.message : e,
+      );
       dbConnected = false;
       throw e;
     } finally {
@@ -172,8 +178,11 @@ export const post = async ({ data }: { data: ChatRequest }) => {
 
     // 返回内存中的会话
     const memoryList = Array.from(memoryStorage.conversations.values())
-      .sort((a: any, b: any) => b.updatedAt - a.updatedAt)
-      .map((conv: any) => ({
+      .sort(
+        (a: MemoryConversation, b: MemoryConversation) =>
+          b.updatedAt - a.updatedAt,
+      )
+      .map((conv: MemoryConversation) => ({
         _id: conv.id,
         title: conv.title,
         updatedAt: new Date(conv.updatedAt),
@@ -184,15 +193,19 @@ export const post = async ({ data }: { data: ChatRequest }) => {
   }
 
   if (data.action === 'getConversation') {
-    console.log(`Action: getConversation, ID: ${data.chatId}`);
+    const chatId = data.chatId;
+    if (!chatId) {
+      return { code: 400, error: '缺少chatId参数' };
+    }
+    console.log(`Action: getConversation, ID: ${chatId}`);
 
     // 检查 chatId 是否是有效的 MongoDB ObjectId
-    const isValidObjectId = mongoose.Types.ObjectId.isValid(data.chatId);
+    const isValidObjectId = mongoose.Types.ObjectId.isValid(chatId);
 
     // 如果数据库已连接且 chatId 是有效的 ObjectId，尝试从数据库查询
     if (dbConnected && isValidObjectId) {
       try {
-        const conv = await Conversation.findById(data.chatId);
+        const conv = await Conversation.findById(chatId);
         if (conv) {
           return { code: 200, data: conv };
         }
@@ -202,28 +215,32 @@ export const post = async ({ data }: { data: ChatRequest }) => {
     }
 
     // 从内存获取
-    const conv = memoryStorage.conversations.get(data.chatId);
+    const conv = memoryStorage.conversations.get(chatId);
     if (conv) {
       return { code: 200, data: conv };
-    } else {
-      return { code: 404, error: '会话不存在' };
     }
+    return { code: 404, error: '会话不存在' };
   }
 
   if (data.action === 'saveAiMessage') {
-    console.log(`Action: saveAiMessage, ID: ${data.chatId}`);
+    const chatId = data.chatId;
+    const content = data.content || '';
+    if (!chatId) {
+      return { code: 400, error: '缺少chatId参数' };
+    }
+    console.log(`Action: saveAiMessage, ID: ${chatId}`);
 
     // 检查 chatId 是否是有效的 MongoDB ObjectId
-    const isValidObjectId = mongoose.Types.ObjectId.isValid(data.chatId);
+    const isValidObjectId = mongoose.Types.ObjectId.isValid(chatId);
 
     // 如果数据库已连接且 chatId 是有效的 ObjectId，尝试保存到数据库
     if (dbConnected && isValidObjectId) {
       try {
-        await Conversation.findByIdAndUpdate(data.chatId, {
+        await Conversation.findByIdAndUpdate(chatId, {
           $push: {
             messages: {
               role: 'assistant',
-              content: data.content,
+              content: content,
               timestamp: Date.now(),
             },
           },
@@ -237,30 +254,33 @@ export const post = async ({ data }: { data: ChatRequest }) => {
     }
 
     // 内存保存（如果 chatId 不是有效的 ObjectId，或者数据库保存失败）
-    const conv = memoryStorage.conversations.get(data.chatId);
+    const conv = memoryStorage.conversations.get(chatId);
     if (conv) {
       conv.messages.push({
         role: 'assistant',
-        content: data.content,
+        content: content,
         timestamp: Date.now(),
       });
       conv.updatedAt = Date.now();
       console.log('AI消息保存到内存成功');
       return { code: 200, msg: 'Saved' };
-    } else {
-      return { code: 404, error: '会话不存在' };
     }
+    return { code: 404, error: '会话不存在' };
   }
 
   if (data.action === 'deleteSession') {
     try {
+      const chatId = data.chatId;
+      if (!chatId) {
+        return { code: 400, error: '缺少chatId参数' };
+      }
       // 检查 chatId 是否是有效的 MongoDB ObjectId
-      const isValidObjectId = mongoose.Types.ObjectId.isValid(data.chatId);
+      const isValidObjectId = mongoose.Types.ObjectId.isValid(chatId);
 
       // 如果数据库已连接且 chatId 是有效的 ObjectId，尝试从数据库删除
       if (dbConnected && isValidObjectId) {
         try {
-          await Conversation.findByIdAndDelete(data.chatId);
+          await Conversation.findByIdAndDelete(chatId);
           return { code: 200, msg: 'Deleted' };
         } catch (e) {
           console.error('数据库删除失败:', e);
@@ -268,7 +288,7 @@ export const post = async ({ data }: { data: ChatRequest }) => {
       }
 
       // 从内存删除
-      memoryStorage.conversations.delete(data.chatId);
+      memoryStorage.conversations.delete(chatId);
       return { code: 200, msg: 'Deleted' };
     } catch (e) {
       return { code: 500, error: '删除失败' };
@@ -277,14 +297,19 @@ export const post = async ({ data }: { data: ChatRequest }) => {
 
   if (data.action === 'renameSession') {
     try {
+      const chatId = data.chatId;
+      const title = data.title || '';
+      if (!chatId) {
+        return { code: 400, error: '缺少chatId参数' };
+      }
       if (dbConnected) {
-        await Conversation.findByIdAndUpdate(data.chatId, {
-          title: data.title,
+        await Conversation.findByIdAndUpdate(chatId, {
+          title: title,
         });
       } else {
-        const conv = memoryStorage.conversations.get(data.chatId);
+        const conv = memoryStorage.conversations.get(chatId);
         if (conv) {
-          conv.title = data.title;
+          conv.title = title;
         }
       }
       return { code: 200, msg: 'Renamed' };
@@ -296,8 +321,8 @@ export const post = async ({ data }: { data: ChatRequest }) => {
   // 核心聊天逻辑
   try {
     console.log('进入聊天逻辑...');
-    const { message, useSearch, chatId } = data;
-    let currentConversation;
+    const { message = '', useSearch, chatId } = data;
+    let currentConversation: typeof Conversation | MemoryConversation | null;
     let finalSystemPrompt = SYSTEM_PROMPT;
 
     // 处理会话存储
@@ -340,8 +365,8 @@ export const post = async ({ data }: { data: ChatRequest }) => {
         // 如果找不到，但传入了 chatId，说明应该使用这个 chatId 创建新对话
         // 这通常发生在内存被清空但前端还保留 chatId 的情况
         console.warn(`未找到指定ID的会话 ${chatId}，将使用该ID创建新对话`);
-        const newConv = {
-          id: chatId, // 使用传入的 chatId
+        const newConv: Conversation = {
+          id: chatId,
           userId: 'user-1',
           title: generateTitle(message),
           messages: [{ role: 'user', content: message, timestamp: Date.now() }],
@@ -357,7 +382,7 @@ export const post = async ({ data }: { data: ChatRequest }) => {
     // 只有在没有传入 chatId 时才创建全新的会话
     if (!currentConversation && !chatId) {
       console.log('创建新会话');
-      const newConv = {
+      const newConv: Conversation = {
         id: String(memoryStorage.currentId++),
         userId: 'user-1',
         title: generateTitle(message),
@@ -477,11 +502,12 @@ export const post = async ({ data }: { data: ChatRequest }) => {
         },
       },
     );
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('❌ 全局错误捕获:', error);
+    const errorMessage = error instanceof Error ? error.message : '未知错误';
     return new Response(
       JSON.stringify({
-        error: `服务端错误: ${error.message}`,
+        error: `服务端错误: ${errorMessage}`,
       }),
       {
         status: 500,

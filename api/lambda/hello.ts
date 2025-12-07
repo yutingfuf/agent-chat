@@ -17,7 +17,7 @@ export const get = async () => ({
  * @param req - 请求对象
  * @returns 处理后的响应
  */
-export const post = async ({ data }: { data?: any }) => ({
+export const post = async ({ data }: { data?: Record<string, unknown> }) => ({
   message: 'Hello Modern.js',
   timestamp: new Date().toISOString(),
   status: 'success',

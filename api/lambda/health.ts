@@ -44,7 +44,7 @@ export const get = async () => {
         headers: {
           'Content-Type': 'application/json',
         },
-      }
+      },
     );
   }
 };

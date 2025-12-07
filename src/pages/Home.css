@@ -280,12 +280,6 @@
   transform: translateX(-50%);
 }
 
-.top-nav-dark {
-}
-
-.top-nav-light {
-}
-
 .main-title {
   font-size: 1.25rem;
   font-weight: bold;
@@ -509,7 +503,9 @@
 }
 
 @keyframes bounce {
-  0%, 80%, 100% {
+  0%,
+  80%,
+  100% {
     transform: scale(0);
   }
   40% {
@@ -793,7 +789,7 @@
   .sidebar {
     display: flex;
   }
-  
+
   .top-nav {
     display: flex;
   }
@@ -807,9 +803,6 @@
 
 .dark-mode .sidebar-light {
   background-color: #1f2937;
-}
-
-.dark-mode .top-nav-light {
 }
 
 .dark-mode .input-container {

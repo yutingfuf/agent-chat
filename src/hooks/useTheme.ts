@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
 type Theme = 'light' | 'dark';
 
@@ -8,7 +8,9 @@ export function useTheme() {
     if (savedTheme) {
       return savedTheme;
     }
-    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    return window.matchMedia('(prefers-color-scheme: dark)').matches
+      ? 'dark'
+      : 'light';
   });
 
   useEffect(() => {
@@ -18,12 +20,12 @@ export function useTheme() {
   }, [theme]);
 
   const toggleTheme = () => {
-    setTheme(prevTheme => prevTheme === 'light' ? 'dark' : 'light');
+    setTheme(prevTheme => (prevTheme === 'light' ? 'dark' : 'light'));
   };
 
   return {
     theme,
     toggleTheme,
-    isDark: theme === 'dark'
+    isDark: theme === 'dark',
   };
-} 
+}
