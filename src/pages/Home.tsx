@@ -7,11 +7,11 @@ import {
   Mic,
   Moon,
   Plus,
-  RotateCcw,
   Search,
   Send,
   Settings,
   Sun,
+  Trash2,
   User,
 } from 'lucide-react';
 // Home.tsx
@@ -92,7 +92,9 @@ export default function Home() {
 
           setChatHistories(histories);
 
-          if (histories.length > 0 && !activeChatId) {
+          // 只有在初始加载且没有activeChatId时才自动选择第一个对话
+          // 避免在新建对话（activeChatId被设为null）时自动跳转
+          if (histories.length > 0 && !activeChatId && messages.length === 0) {
             setActiveChatId(histories[0].id);
             loadConversation(histories[0].id);
           }
@@ -112,7 +114,7 @@ export default function Home() {
     };
 
     loadChatHistories();
-  }, [activeChatId]);
+  }, [activeChatId, messages.length]);
 
   // 加载特定对话的消息
   const loadConversation = async (chatId: string) => {
@@ -158,6 +160,12 @@ export default function Home() {
   const createNewChat = async () => {
     setActiveChatId(null);
     setMessages([]);
+    // 确保输入框为空
+    setInput('');
+    // 关闭搜索框（如果打开）
+    setShowSearch(false);
+    setSearchQuery('');
+    setSearchResults([]);
   };
 
   // 切换对话
@@ -794,23 +802,17 @@ export default function Home() {
                   onClick={() => switchChat(chat.id)}
                 >
                   <div className="chat-item-content">
-                    <div>
-                      <div className="tooltip-container">
-                        <h3
-                          className="chat-title"
-                          data-title={chat.title || '无标题对话'}
-                        >
-                          {(chat.title || '无标题对话').length > 10
-                            ? `${(chat.title || '无标题对话').substring(0, 10)}...`
-                            : chat.title || '无标题对话'}
-                        </h3>
-                        <div className="tooltip-content">
-                          {chat.title || '无标题对话'}
-                          <div className="tooltip-arrow" />
-                        </div>
-                      </div>
+                    <div className="tooltip-container">
+                      <h3 className="chat-title">
+                        {chat.title || '无标题对话'}
+                      </h3>
                       <p className="chat-time">
-                        {new Date(chat.timestamp).toLocaleTimeString()}
+                        {new Date(chat.timestamp).toLocaleString('zh-CN', {
+                          month: 'numeric',
+                          day: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
                       </p>
                     </div>
                     <button
@@ -820,8 +822,9 @@ export default function Home() {
                         e.stopPropagation();
                         deleteChat(chat.id);
                       }}
+                      title="删除对话"
                     >
-                      <RotateCcw size={16} />
+                      <Trash2 size={16} />
                     </button>
                   </div>
                 </button>
@@ -898,6 +901,7 @@ export default function Home() {
                   setSearchQuery('');
                   setSearchResults([]);
                 }}
+                title="关闭搜索"
               >
                 ×
               </button>
@@ -1079,6 +1083,7 @@ export default function Home() {
                 className={`send-btn input-btn ${isTyping ? 'disabled' : ''}`}
                 onClick={sendMessage}
                 disabled={isTyping || !input.trim()}
+                title="发送消息"
               >
                 <Send size={20} />
               </button>

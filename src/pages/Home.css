@@ -9,7 +9,7 @@
 
 /* 侧边栏 */
 .sidebar {
-  width: 0;
+  width: 308.4px;
   transition: all 0.3s ease-in-out;
   background-color: white;
   border-right: 1px solid #e5e7eb;
@@ -19,8 +19,11 @@
   opacity: 0.9;
 }
 
-.sidebar.open {
-  width: 320px;
+/* 修复侧边栏显示/隐藏逻辑 */
+@media (min-width: 768px) {
+  .sidebar:not(.open) {
+    width: 0;
+  }
 }
 
 .sidebar-dark {
@@ -53,8 +56,8 @@
 
 .new-chat-btn {
   width: 100%;
-  padding: 0.65rem 1rem;
-  border-radius: 0.5rem;
+  padding: 0.75rem 1rem;
+  border-radius: 0.75rem;
   background-color: #2563eb;
   color: white;
   display: flex;
@@ -63,14 +66,20 @@
   gap: 0.5rem;
   border: none;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.2s ease;
   font-weight: 500;
+  font-size: 0.9rem;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
 
 .new-chat-btn:hover {
   background-color: #1d4ed8;
   transform: translateY(-1px);
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.new-chat-btn:active {
+  transform: translateY(0);
 }
 
 /* 收缩状态下的新对话按钮样式 */
@@ -92,122 +101,140 @@
 }
 
 .chat-item {
-  padding: 0.75rem 1rem;
-  border-radius: 0.5rem;
+  padding: 0.85rem 1rem;
+  border-radius: 0.75rem;
   cursor: pointer;
-  transition: background-color 0.2s;
-  border-left: 4px solid transparent;
+  transition: all 0.2s ease;
+  border-left: 3px solid transparent;
+  margin: 0 0.5rem;
+  background-color: transparent;
+  min-height: 56px; /* 设置最小高度，确保所有聊天项高度一致 */
+  box-sizing: border-box;
+  border: 1px solid #e5e7eb;
+  width: calc(100% - 1rem); /* 100%宽度减去左右margin各0.5rem */
+  max-width: calc(100% - 1rem); /* 确保最大宽度也一样 */
+  flex-shrink: 0; /* 防止收缩 */
 }
 
 .chat-item:hover {
-  background-color: #f3f4f6;
+  background-color: rgba(37, 99, 235, 0.08);
+  transform: translateX(2px);
+  border-color: #d1d5db;
+}
+
+.sidebar-dark .chat-item {
+  border-color: #374151;
 }
 
 .sidebar-dark .chat-item:hover {
-  background-color: #374151;
+  background-color: rgba(255, 255, 255, 0.08);
+  border-color: #4b5563;
 }
 
 .chat-item.active {
-  background-color: #dbeafe;
+  background-color: rgba(37, 99, 235, 0.12);
+  border-color: #e5e7eb;
   border-left-color: #2563eb;
+  font-weight: 500;
+}
+
+.sidebar-dark .chat-item.active {
+  border-color: #374151;
 }
 
 .sidebar-dark .chat-item.active {
   background-color: rgba(37, 99, 235, 0.2);
 }
 
-/* 聊天项内容容器 - 确保删除按钮右侧垂直居中 */
+/* 聊天项内容容器 - 确保删除按钮右侧垂直居中且对齐 */
 .chat-item-content {
   display: flex;
   justify-content: space-between;
+  align-items: flex-start;
+  width: 100%;
+  flex-shrink: 0;
+}
+
+/* 确保聊天列表项容器有正确的宽度 */
+.space-y-1 > button.chat-item {
+  width: 100%;
+  display: block;
+}
+
+/* 确保删除按钮不受主按钮样式影响 */
+.chat-item-content > button.delete-btn {
+  width: auto;
+  text-align: center;
+  padding: 0.5rem;
+  margin: 0;
+  display: flex;
   align-items: center;
+  justify-content: center;
 }
 
 .chat-title {
   font-weight: 500;
-  font-size: 0.875rem;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  min-width: 14ch; /* 确保至少显示12个中文字符的宽度 */
-  max-width: calc(100% - 24px);
-  position: relative;
-  cursor: pointer;
-}
-
-/* 悬浮提示框样式 */
-.tooltip-container {
-  position: relative;
-  display: inline-block;
-}
-
-.tooltip-content {
-  position: absolute;
-  left: 0;
-  top: 120%;
-  transform: translateX(0%);
-  padding: 8px 12px;
-  background-color: rgba(31, 41, 55, 0.95);
-  color: white;
-  font-size: 0.875rem;
-  border-radius: 6px;
-  opacity: 0;
-  visibility: hidden;
-  transition: opacity 0.2s, visibility 0.2s;
-  z-index: 1000;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-  max-width: 300px;
+  font-size: 0.9rem;
   white-space: normal;
   word-break: break-word;
+  line-height: 1.4;
+  color: #374151;
+  margin-bottom: 0.25rem;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
   text-align: left;
 }
 
-.tooltip-container:hover .tooltip-content {
-  opacity: 1;
-  visibility: visible;
-}
-
-/* 箭头样式 */
-.tooltip-arrow {
-  position: absolute;
-  bottom: 100%;
-  left: 15%;
-  transform: translateX(0);
-  border: 6px solid transparent;
-  border-bottom-color: rgba(31, 41, 55, 0.95);
-}
-
-/* 深色模式下的提示框样式调整 */
-.sidebar-dark .tooltip-content {
-  background-color: rgba(75, 85, 99, 0.95);
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
-}
-
-.sidebar-dark .tooltip-arrow {
-  border-bottom-color: rgba(75, 85, 99, 0.95);
+.sidebar-dark .chat-title {
+  color: #f9fafb;
 }
 
 .chat-time {
-  font-size: 0.75rem;
-  color: #6b7280;
-  margin-top: 0.25rem;
+  font-size: 0.78rem;
+  color: #9ca3af;
+  margin-top: 0.1rem;
+  font-weight: 400;
+  text-align: left;
+}
+
+/* 优化聊天项内容布局 */
+.tooltip-container {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .delete-btn {
   color: #9ca3af;
   background: none;
   border: none;
-  padding: 0.25rem;
+  padding: 0.5rem;
   border-radius: 50%;
   cursor: pointer;
-  transition: color 0.2s;
+  transition: all 0.2s ease;
   display: flex;
   align-items: center;
   justify-content: center;
+  opacity: 0.7;
+  margin-left: auto;
+  /* 固定删除按钮位置，确保所有按钮在同一竖线上 */
+  flex-shrink: 0;
+  align-self: center;
+  margin-top: 0;
+  margin-bottom: 0;
 }
 
 .delete-btn:hover {
   color: #ef4444;
+  opacity: 1;
+  background-color: rgba(239, 68, 68, 0.1);
+}
+
+.sidebar-dark .delete-btn:hover {
+  background-color: rgba(239, 68, 68, 0.2);
 }
 
 .empty-state {
