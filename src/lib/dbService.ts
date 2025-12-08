@@ -2,7 +2,7 @@ import mongoose, { type Document, type Model } from 'mongoose';
 
 // MongoDB连接配置
 const MONGODB_URI =
-  'mongodb+srv://2061997293_db_user:159357yyt@cluster0.mgbpuot.mongodb.net/?appName=Cluster0';
+  'mongodb+srv://2061997293_db_user:159357Yyt@cluster0.mgbpuot.mongodb.net/?appName=Cluster0';
 
 // 消息接口定义
 export interface MessageDocument extends Document {
@@ -170,11 +170,21 @@ async function connectToDatabase() {
   if (!cached.promise) {
     cached.promise = mongoose
       .connect(MONGODB_URI, {
-        serverSelectionTimeoutMS: 5000, // 5秒超时
-        socketTimeoutMS: 45000, // 45秒socket超时
+        serverSelectionTimeoutMS: 10000, // 10秒超时
+        socketTimeoutMS: 60000, // 60秒socket超时
+        connectTimeoutMS: 10000, // 10秒连接超时
+        retryWrites: true,
+        retryReads: true,
+        maxPoolSize: 10,
+        minPoolSize: 1,
+        family: 4, // 使用IPv4，避免IPv6解析问题
       } as mongoose.ConnectOptions)
       .then(mongoose => {
         return mongoose;
+      })
+      .catch(error => {
+        console.error('MongoDB连接失败:', error);
+        throw error;
       });
   }
   cached.conn = await cached.promise;

@@ -18,6 +18,26 @@ import {
 import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import './Home.css'; // 导入CSS文件
+import ToolVisualizer from '../components/ToolVisualizer';
+import {
+  type TodoList,
+  TodoListVisualizer,
+  isTodoList,
+  parseTodoList,
+} from '../lib/todoVisualizer';
+
+// 工具调用结果类型
+type ToolResult = {
+  type: 'search_result' | 'text' | 'other';
+  title?: string;
+  items?: Array<{
+    id: string;
+    title: string;
+    content: string;
+    url?: string;
+  }>;
+  content?: string;
+};
 
 // 消息类型定义
 interface Message {
@@ -47,6 +67,8 @@ export default function Home() {
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const [isDark, setIsDark] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  // 自动滚动控制
+  const [isAutoScrollEnabled, setIsAutoScrollEnabled] = useState(true);
   // 搜索相关状态
   const [showSearch, setShowSearch] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -67,6 +89,9 @@ export default function Home() {
     setIsDark(!isDark);
     document.body.classList.toggle('dark-mode');
   };
+
+  // 添加一个状态来跟踪是否已经完成初始加载
+  const [initialLoaded, setInitialLoaded] = useState(false);
 
   // 加载聊天历史
   useEffect(() => {
@@ -94,10 +119,17 @@ export default function Home() {
 
           // 只有在初始加载且没有activeChatId时才自动选择第一个对话
           // 避免在新建对话（activeChatId被设为null）时自动跳转
-          if (histories.length > 0 && !activeChatId && messages.length === 0) {
+          if (
+            histories.length > 0 &&
+            !activeChatId &&
+            messages.length === 0 &&
+            !initialLoaded
+          ) {
             setActiveChatId(histories[0].id);
             loadConversation(histories[0].id);
           }
+          // 添加初始加载完成
+          setInitialLoaded(true);
         }
       } catch (error) {
         console.error('Failed to load chat histories:', error);
@@ -110,11 +142,13 @@ export default function Home() {
             console.error('Failed to parse chat histories:', error);
           }
         }
+        // 标记初始加载完成，即使加载失败
+        setInitialLoaded(true);
       }
     };
 
     loadChatHistories();
-  }, [activeChatId, messages.length]);
+  }, [activeChatId, initialLoaded, messages.length]);
 
   // 加载特定对话的消息
   const loadConversation = async (chatId: string) => {
@@ -153,8 +187,10 @@ export default function Home() {
 
   // 自动滚动到最新消息
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, []);
+    if (isAutoScrollEnabled) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [isAutoScrollEnabled]);
 
   // 创建新对话
   const createNewChat = async () => {
@@ -202,6 +238,9 @@ export default function Home() {
   // 使用联网搜索发送消息
   const sendMessageWithSearch = async () => {
     if (!input.trim() || isTyping) return;
+
+    // 发送新消息时重新启用自动滚动
+    setIsAutoScrollEnabled(true);
 
     const userMessage: Message = {
       id: `msg-${Date.now()}`,
@@ -269,6 +308,7 @@ export default function Home() {
             setChatHistories(histories);
           }
         };
+        // 立即调用loadHistories获取包含AI生成标题的最新对话列表
         loadHistories();
       }
 
@@ -312,6 +352,14 @@ export default function Home() {
         }
       }
 
+      setMessages(prevMessages =>
+        prevMessages.map(msg =>
+          msg.id === thinkingMessage.id
+            ? { ...msg, content: fullContent, thinking: false }
+            : msg,
+        ),
+      );
+
       if (newChatId || activeChatId) {
         const finalChatId = newChatId || activeChatId;
         if (finalChatId && fullContent) {
@@ -354,37 +402,16 @@ export default function Home() {
           return chat;
         });
 
-        let newChat: ChatHistory | null = null;
-        if (newChatId && !chatHistories.find(chat => chat.id === newChatId)) {
-          newChat = {
-            id: newChatId,
-            title:
-              input.trim().length > 20
-                ? `${input.trim().substring(0, 20)}...`
-                : input.trim(),
-            messages: [
-              userMessage,
-              {
-                ...thinkingMessage,
-                content: fullContent,
-                thinking: false,
-              },
-            ],
-            timestamp: new Date(),
-          };
-          setChatHistories([newChat, ...chatHistories]);
-        } else {
+        // 对于已有对话，直接更新标题和消息
+        if (activeChatId) {
           setChatHistories(updatedHistories);
+          localStorage.setItem(
+            'chatHistories',
+            JSON.stringify(updatedHistories),
+          );
         }
-
-        localStorage.setItem(
-          'chatHistories',
-          JSON.stringify(
-            newChat
-              ? [{ ...newChat, messages: [] }, ...chatHistories]
-              : updatedHistories,
-          ),
-        );
+        // 对于新对话，不设置临时标题，完全依赖loadHistories从后端获取AI生成的标题
+        // 避免标题闪烁问题，loadHistories会在后面执行并更新完整的对话列表
       }
     } catch (error) {
       toast.error('发送消息失败，请稍后重试');
@@ -411,6 +438,9 @@ export default function Home() {
   // 发送消息
   const sendMessage = async () => {
     if (!input.trim() || isTyping) return;
+
+    // 发送新消息时重新启用自动滚动
+    setIsAutoScrollEnabled(true);
 
     const userMessage: Message = {
       id: `msg-${Date.now()}`,
@@ -560,37 +590,16 @@ export default function Home() {
           return chat;
         });
 
-        let newChat: ChatHistory | null = null;
-        if (newChatId && !chatHistories.find(chat => chat.id === newChatId)) {
-          newChat = {
-            id: newChatId,
-            title:
-              input.trim().length > 20
-                ? `${input.trim().substring(0, 20)}...`
-                : input.trim(),
-            messages: [
-              userMessage,
-              {
-                ...thinkingMessage,
-                content: fullContent,
-                thinking: false,
-              },
-            ],
-            timestamp: new Date(),
-          };
-          setChatHistories([newChat, ...chatHistories]);
-        } else {
+        // 对于已有对话，直接更新标题和消息
+        if (activeChatId) {
           setChatHistories(updatedHistories);
+          localStorage.setItem(
+            'chatHistories',
+            JSON.stringify(updatedHistories),
+          );
         }
-
-        localStorage.setItem(
-          'chatHistories',
-          JSON.stringify(
-            newChat
-              ? [{ ...newChat, messages: [] }, ...chatHistories]
-              : updatedHistories,
-          ),
-        );
+        // 对于新对话，不设置临时标题，完全依赖loadHistories从后端获取AI生成的标题
+        // 避免标题闪烁问题，loadHistories会在后面执行并更新完整的对话列表
       }
     } catch (error) {
       toast.error('发送消息失败，请稍后重试');
@@ -689,6 +698,9 @@ export default function Home() {
     messageId: string;
     index: number;
   }) => {
+    // 禁用自动滚动，防止滚动到最新消息
+    setIsAutoScrollEnabled(false);
+
     // 切换到对应的对话
     switchChat(result.chatId);
 
@@ -1035,11 +1047,19 @@ export default function Home() {
                         <>
                           {message.isSearchResult && (
                             <div className="text-xs text-blue-600 dark:text-blue-400 mb-1 font-semibold flex items-center">
-                              <Search size={14} className="mr-1" />{' '}
+                              <Search size={14} className="mr-1" />
                               已使用联网搜索提供最新信息
                             </div>
                           )}
-                          <p>{message.content}</p>
+                          {isTodoList(message.content) ? (
+                            <TodoListVisualizer
+                              todoList={
+                                parseTodoList(message.content) as TodoList
+                              }
+                            />
+                          ) : (
+                            <p>{message.content}</p>
+                          )}
                         </>
                       )}
                     </div>

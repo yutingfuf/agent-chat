@@ -4,6 +4,8 @@ const MessageSchema = new mongoose.Schema({
   role: { type: String, required: true },
   content: { type: String, required: true },
   timestamp: { type: Number, default: Date.now },
+  thinking: { type: Boolean, default: false },
+  isSearchResult: { type: Boolean, default: false },
 });
 
 const ConversationSchema = new mongoose.Schema({
