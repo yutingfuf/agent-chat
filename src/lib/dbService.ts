@@ -1,8 +1,7 @@
 import mongoose, { type Document, type Model } from 'mongoose';
 
-// MongoDB连接配置
-const MONGODB_URI =
-  'mongodb+srv://2061997293_db_user:159357Yyt@cluster0.mgbpuot.mongodb.net/?appName=Cluster0';
+// 从环境变量获取MongoDB连接配置
+const MONGODB_URI = process.env.MONGODB_URI || '';
 
 // 消息接口定义
 export interface MessageDocument extends Document {

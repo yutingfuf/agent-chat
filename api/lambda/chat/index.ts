@@ -5,20 +5,34 @@ import { generateMemoryTags, vectorDB } from '../../../src/lib/memoryManager';
 
 // API 路由处理器 - 导出命名函数以符合BFF架构标准
 
-// 豆包 API 配置
+// 从环境变量获取 API 配置
 const DOUBAO_API_URL =
+  process.env.DOUBAO_API_URL ||
   'https://ark.cn-beijing.volces.com/api/v3/chat/completions';
-const DOUBAO_API_KEY = '02e001ce-37e4-4a35-90a5-38407e14524f';
+const DOUBAO_API_KEY = process.env.DOUBAO_API_KEY || '';
 
 // Tavily API 配置
-const TAVILY_API_URL = 'https://api.tavily.com/search';
-const TAVILY_API_KEY = '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';
+const TAVILY_API_URL =
+  process.env.TAVILY_API_URL || 'https://api.tavily.com/search';
+const TAVILY_API_KEY = process.env.TAVILY_API_KEY || '';
 
 const SYSTEM_PROMPT = `你是一名专业的教练，擅长根据用户的兴趣设定目标并提供指导。请以自然、友好的人类口吻与用户交流，避免使用格式化的标题或生硬的结构。
 
 当用户分享兴趣时，帮助他们设定清晰可行的目标，包含明确的时间框架和可衡量的标准。在用户提问或日常对话时，提供简单实用的回答，确保内容易于理解和执行。
 
-如果有联网搜索结果，请**必须**优先参考这些信息来回答，确保内容的时效性和准确性。你必须使用搜索结果中的信息来回答用户的问题，不能说自己无法获取实时信息或让用户自己去搜索。
+**最重要的规则：如果有联网搜索结果，请你必须100%优先参考这些搜索信息来回答问题，绝对不能忽略搜索结果。**
+
+1. 对于实时信息问题（如天气、新闻、体育赛事结果、股票价格、交通状况、最新政策等），**必须**使用搜索结果中的信息回答，绝对不能说自己无法获取实时信息或让用户自己去搜索，绝对不能推荐用户使用其他应用或网站查询
+2. 对于其他类型的问题，如果搜索结果中有相关信息，也必须优先参考
+3. 回答时要自然地融入搜索结果中的信息，不要生硬地引用
+4. 确保回答的内容与搜索结果一致，避免提供矛盾的信息
+5. 如果搜索结果中有直接答案，请优先使用直接答案回答问题
+6. 如果搜索结果中有多个相关信息，请结合这些信息提供完整的回答
+7. 绝对不能在有搜索结果的情况下，告诉用户无法获取相关信息或让用户自己去查询
+
+例如：
+- 当用户问"今天北京的天气怎么样？"时，你必须使用搜索结果中的天气信息回答，而不能说"你可以通过天气应用查询北京的天气"
+- 当用户问"昨天的足球比赛结果是什么？"时，你必须使用搜索结果中的比赛结果回答，而不能说"你可以去体育网站查看比赛结果"
 
 当用户需要创建TODO列表时，请返回结构化的JSON格式数据，包含以下字段：
 - type: "todo_list"
@@ -36,13 +50,14 @@ const SYSTEM_PROMPT = `你是一名专业的教练，擅长根据用户的兴趣
 // 决策prompt，用于判断需要执行的行动
 const DECISION_PROMPT = `你是智能决策助手，需要根据用户的问题和上下文，判断需要执行的行动类型。请根据以下规则进行判断：
 
-1. 如果问题涉及实时信息（如天气、新闻、体育赛事结果、股票价格、交通状况、最新政策等），需要执行SEARCH行动
-2. 如果问题涉及特定领域的专业知识（如医学、法律、技术、金融、教育等）且可能需要最新资料，需要执行SEARCH行动
-3. 如果问题是关于设定目标、制定计划或安排任务，需要执行PLAN行动
-4. 如果问题是关于用户个人情况、兴趣爱好或历史对话，需要执行RETRIEVE_MEMORY行动
-5. 如果问题是关于执行具体任务或操作（如计算、翻译、写作、设计等），需要执行EXECUTE行动
-6. 如果问题是关于总结、分析或提供建议，需要执行ANALYZE行动
+1. 如果问题涉及实时信息（如天气、新闻、体育赛事结果、股票价格、交通状况、最新政策、实时活动、当前事件等），**必须**执行SEARCH行动，优先级设为5。例如："今天北京的天气怎么样？"、"昨天的足球比赛结果是什么？"、"现在股票市场怎么样？"
+2. 如果问题涉及特定领域的专业知识（如医学、法律、技术、金融、教育等）且可能需要最新资料，**必须**执行SEARCH行动，优先级设为4。例如："2025年最新的税收政策是什么？"、"如何治疗新型流感？"
+3. 如果问题是关于设定目标、制定计划或安排任务，需要执行PLAN行动，优先级设为3
+4. 如果问题是关于用户个人情况、兴趣爱好或历史对话，需要执行RETRIEVE_MEMORY行动，优先级设为2
+5. 如果问题是关于执行具体任务或操作（如计算、翻译、写作、设计等），需要执行EXECUTE行动，优先级设为3
+6. 如果问题是关于总结、分析或提供建议，需要执行ANALYZE行动，优先级设为3
 7. 如果问题涉及多步骤任务或需要综合多种信息，可能需要执行多个行动
+8. **最重要的规则**：对于任何需要实时信息或最新数据的问题，**绝对不能**忽略SEARCH行动，必须执行SEARCH行动
 
 请严格按照JSON格式输出，包含以下字段：
 - actions: array，需要执行的行动列表，每个行动包含：
@@ -167,34 +182,123 @@ async function generateTitle(message: string): Promise<string> {
 // 搜索工具
 async function searchWeb(query: string) {
   console.log(`正在执行搜索: ${query}`);
-  try {
-    const response = await fetch(TAVILY_API_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        api_key: TAVILY_API_KEY,
-        query: query,
-        search_depth: 'basic',
-        include_answer: false,
-        max_results: 5,
-      }),
-    });
-    if (!response.ok) {
-      console.error(`搜索API响应错误: ${response.status}`);
-      return '';
-    }
-    const data = await response.json();
-    console.log(`搜索成功，结果数量: ${data.results?.length || 0}`);
-    return (data.results || [])
-      .map(
-        (item: SearchResultItem, i: number) =>
-          `[${i + 1}] ${item.title}: ${item.content}`,
-      )
-      .join('\n\n');
-  } catch (error) {
-    console.error('搜索抛出异常:', error);
-    return '';
+
+  // 检查API密钥是否配置
+  if (!TAVILY_API_KEY) {
+    console.error('搜索API配置错误: 未提供TAVILY_API_KEY环境变量');
+    return '搜索功能未配置，请检查TAVILY_API_KEY环境变量';
   }
+
+  // 重试机制配置
+  const maxRetries = 2;
+  const retryDelay = 1000;
+  const timeoutMs = 15000; // 15秒超时
+
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      console.log(`搜索尝试 ${attempt}/${maxRetries}`);
+
+      // 创建AbortController用于超时控制
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+      const response = await fetch(TAVILY_API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          api_key: TAVILY_API_KEY,
+          query: query,
+          search_depth: 'basic',
+          include_answer: true,
+          max_results: 3, // 减少结果数量，提高响应速度
+        }),
+        signal: controller.signal, // 添加超时信号
+      });
+
+      clearTimeout(timeoutId); // 清除超时定时器
+
+      if (!response.ok) {
+        console.error(`搜索API响应错误: ${response.status}`);
+
+        // 针对401错误提供详细信息
+        if (response.status === 401) {
+          console.error(
+            'API认证失败: 401 Unauthorized - 请检查TAVILY_API_KEY是否有效',
+          );
+          return '搜索API认证失败，请检查TAVILY_API_KEY是否有效';
+        }
+
+        // 针对其他错误的处理
+        if (response.status >= 500) {
+          console.error('API服务器错误: 可能是Tavily服务暂时不可用');
+        } else if (response.status >= 400) {
+          console.error('API请求错误: 可能是请求参数或格式问题');
+        }
+
+        if (attempt < maxRetries) {
+          console.log(`等待 ${retryDelay}ms 后重试...`);
+          await new Promise(resolve => setTimeout(resolve, retryDelay));
+          continue;
+        }
+
+        return `搜索API请求失败，状态码: ${response.status}`;
+      }
+
+      const data = await response.json();
+      console.log(`搜索成功，结果数量: ${data.results?.length || 0}`);
+
+      // 优化搜索结果处理，确保能正确提取内容
+      let searchResults = '';
+
+      // 优先使用Tavily直接返回的答案
+      if (data.answer) {
+        searchResults += `=== 搜索直接答案 ===\n${data.answer}\n\n`;
+      }
+
+      // 然后添加详细搜索结果
+      if (data.results && data.results.length > 0) {
+        searchResults += '=== 搜索详细结果 ===\n';
+        for (let i = 0; i < data.results.length; i++) {
+          const item = data.results[i];
+          const title = item.title || '无标题';
+          const content = item.content || item.text || item.snippet || '无内容';
+          searchResults += `[${i + 1}] ${title}: ${content.substring(0, 200)}...\n\n`; // 限制每个结果的长度
+        }
+      }
+
+      return searchResults;
+    } catch (error) {
+      console.error(`搜索尝试 ${attempt} 失败:`, error);
+
+      // 清除可能存在的超时定时器
+      let errorMessage = '';
+      if (error.name === 'AbortError') {
+        console.error('搜索超时: 15秒内未收到响应');
+        errorMessage = '搜索超时，15秒内未收到响应';
+      } else if (
+        error.name === 'TypeError' &&
+        (error.message.includes('fetch') || error.message.includes('network'))
+      ) {
+        console.error('网络错误: 无法连接到搜索API服务器');
+        errorMessage = '网络错误，无法连接到搜索API服务器';
+      } else {
+        console.error('搜索过程发生未知错误:', error);
+        errorMessage = `搜索过程发生错误: ${(error as Error).message}`;
+      }
+
+      // 如果不是最后一次尝试，等待后重试
+      if (attempt < maxRetries) {
+        console.log(`等待 ${retryDelay}ms 后重试...`);
+        await new Promise(resolve => setTimeout(resolve, retryDelay));
+        continue;
+      }
+
+      // 所有尝试都失败，返回错误信息
+      return errorMessage;
+    }
+  }
+
+  return '搜索功能暂时不可用，请稍后重试'; // 所有重试失败后返回空字符串
 }
 
 // 动态行动规划函数
@@ -279,6 +383,7 @@ async function executeActions(
   systemPrompt: string,
 ): Promise<string> {
   let finalPrompt = systemPrompt;
+  let searchResultsAdded = false;
 
   // 按优先级排序行动
   const sortedActions = [...actions].sort((a, b) => b.priority - a.priority);
@@ -293,6 +398,15 @@ async function executeActions(
           finalPrompt += '\n\n=== 搜索结束 ===\n';
           finalPrompt +=
             '请**必须**优先参考这些搜索信息来回答，确保内容的时效性和准确性。';
+          finalPrompt +=
+            '\n\n如果搜索结果中有直接答案，请优先使用直接答案回答问题。';
+          finalPrompt +=
+            '\n如果搜索结果中有相关的详细信息，请结合这些信息提供完整的回答。';
+          searchResultsAdded = true;
+        } else {
+          finalPrompt += '\n\n=== 联网搜索资料 ===\n';
+          finalPrompt += '未获取到有效的搜索结果。\n';
+          finalPrompt += '=== 搜索结束 ===\n';
         }
         break;
       }
@@ -337,6 +451,14 @@ async function executeActions(
         finalPrompt += '5. 如涉及其他具体任务，请确保任务完成度和准确性\n';
         break;
     }
+  }
+
+  // 确保如果有搜索行动但没有添加搜索结果，也能给出明确提示
+  const hasSearchAction = actions.some(action => action.type === 'SEARCH');
+  if (hasSearchAction && !searchResultsAdded) {
+    finalPrompt += '\n\n=== 重要提示 ===\n';
+    finalPrompt += '本次请求需要实时信息，但未能获取到有效的搜索结果。\n';
+    finalPrompt += '请明确告知用户无法获取实时信息，并提供可能的解决方案。\n';
   }
 
   return finalPrompt;
